@@ -13,7 +13,7 @@ type config struct {
 func loadConfig() (config, error) {
 	cfg := config{
 		databaseURL: "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable",
-		port:        1323,
+		port:        8080,
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")

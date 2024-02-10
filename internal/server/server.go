@@ -4,9 +4,10 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	pgxUUID "github.com/vgarvardt/pgx-google-uuid/v5"
 )
 
 type Server struct {
@@ -16,28 +17,30 @@ type Server struct {
 }
 
 func New() (*Server, error) {
-	// Config
 	cfg, err := loadConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	// Router
-	r := echo.New()
-	r.HideBanner = true
-	r.Use(middleware.Logger())
-	r.Use(middleware.Recover())
-
 	return &Server{
 		db:     nil,
-		router: r,
+		router: echo.New(),
 		cfg:    cfg,
 	}, nil
 }
 
 func (s *Server) Start(ctx context.Context) error {
 	// Database
-	db, err := pgxpool.New(ctx, s.cfg.databaseURL)
+	pgxConfig, err := pgxpool.ParseConfig(s.cfg.databaseURL)
+	if err != nil {
+		return err
+	}
+	pgxConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		pgxUUID.Register(conn.TypeMap())
+		return nil
+	}
+
+	db, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		return err
 	}
@@ -49,6 +52,11 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	s.db = db
+
+	// Router
+	s.loadValidator()
+	s.loadMiddleware()
+	s.loadRoutes()
 
 	// Start server in a separate goroutine
 	go func() {
