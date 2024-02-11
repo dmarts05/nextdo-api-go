@@ -16,13 +16,13 @@ func loadConfig() (config, error) {
 		port:        8080,
 	}
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL != "" {
+	databaseURL, ok := os.LookupEnv("DATABASE_URL")
+	if ok {
 		cfg.databaseURL = databaseURL
 	}
 
-	portStr := os.Getenv("PORT")
-	if portStr != "" {
+	portStr, ok := os.LookupEnv("PORT")
+	if ok {
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			return cfg, err

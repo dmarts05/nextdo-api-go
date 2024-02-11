@@ -34,16 +34,21 @@ func (h Handler) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while processing the request, please try again later")
 	}
 
-	// Compare the password
-	if err := IsPasswordValid(customer.Password, body.Password); err {
-		return echo.NewHTTPError(http.StatusUnauthorized, "invalid email or password")
+	// Compare password
+	ok := IsPasswordValid(customer.Password, body.Password)
+	if !ok {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid password")
 	}
 
-	// Generate the token
-	// TODO: Implement the token generation
+	// Generate token pair
+	tokenPair, err := generateCustomerTokenPair(customer.ID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while processing the request, please try again later")
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"token": "token",
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
 	})
 }
 
@@ -93,9 +98,39 @@ func (h Handler) Register(c echo.Context) error {
 }
 
 func (h Handler) Refresh(c echo.Context) error {
-	panic("not implemented")
-}
+	var body struct {
+		RefreshToken string `json:"refresh_token" validate:"required"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
 
-func (h Handler) Logout(c echo.Context) error {
-	panic("not implemented")
+	// Get customer ID from refresh token
+	customerID, err := getCustomerIDFromToken(body.RefreshToken)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid refresh token")
+	}
+
+	// Check if the customer exists
+	_, err = h.CustomerRepo.GetByID(c.Request().Context(), customerID)
+	switch {
+	case errors.Is(err, repository.ErrNotFound{}):
+		return echo.NewHTTPError(http.StatusUnauthorized, "customer does not exist")
+	case err != nil:
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while processing the request, please try again later")
+	}
+
+	// Generate token pair
+	tokenPair, err := generateCustomerTokenPair(customerID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "an error occurred while processing the request, please try again later")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+	})
 }

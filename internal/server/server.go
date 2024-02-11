@@ -4,9 +4,11 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	pgxUUID "github.com/vgarvardt/pgx-google-uuid/v5"
 )
 
@@ -54,8 +56,10 @@ func (s *Server) Start(ctx context.Context) error {
 	s.db = db
 
 	// Router
-	s.loadValidator()
-	s.loadMiddleware()
+	s.router.HideBanner = true
+	s.router.Validator = &customValidator{validator: validator.New()}
+	s.router.Use(middleware.Logger())
+	s.router.Use(middleware.Recover())
 	s.loadRoutes()
 
 	// Start server in a separate goroutine

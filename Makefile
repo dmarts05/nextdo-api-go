@@ -23,6 +23,11 @@ help:
 postgres:
 	docker run --name postgres -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -d postgres:16-alpine
 
+## postgres/start: start the postgres container
+.PHONY: postgres/start
+postgres/start:
+	docker start postgres
+
 ## postgres/stop: stop the postgres container
 .PHONY: postgres/stop
 postgres/stop:
